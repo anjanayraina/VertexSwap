@@ -12,7 +12,6 @@ contract AMM is ERC20 {
     IERC20 public token0;
     IERC20 public token1;
 
-    // Reserves of each token, stored as uint112 to save gas
     uint112 private reserve0;
     uint112 private reserve1;
     uint32 private blockTimestampLast;
