@@ -19,7 +19,11 @@ contract VertexFeeVault is ERC4626, Ownable {
     address[] public tokenList;
 
     // Constructor
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
+    constructor(IERC20 asset, address initialOwner)
+        ERC4626(asset)
+        ERC20("Vertex Fee Vault Token", "VFVT")
+        Ownable(initialOwner)
+    {}
 
     // Add a token to the supported list
     function addToken(address token, address oracle) external onlyOwner {
@@ -49,6 +53,7 @@ contract VertexFeeVault is ERC4626, Ownable {
         }
     }
 
+    // Calculate total assets in USD
     function totalAssetsInUSD() public view returns (uint256 totalValue) {
         for (uint256 i = 0; i < tokenList.length; i++) {
             address token = tokenList[i];
@@ -60,6 +65,7 @@ contract VertexFeeVault is ERC4626, Ownable {
         }
     }
 
+    // Get the price of a token in USD using Chainlink
     function getTokenPrice(address token) public view returns (uint256) {
         require(tokens[token].supported, "Token not supported");
         (, int256 price, , ,) = tokens[token].priceOracle.latestRoundData();
@@ -67,6 +73,7 @@ contract VertexFeeVault is ERC4626, Ownable {
         return uint256(price);
     }
 
+    // Override deposit function to mint shares
     function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
         require(assets > 0, "Cannot deposit zero assets");
         require(tokens[_msgSender()].supported, "Token not supported");
@@ -83,6 +90,7 @@ contract VertexFeeVault is ERC4626, Ownable {
         return shares;
     }
 
+    // Override withdraw function to burn shares
     function withdraw(uint256 shares, address receiver, address owner) public override returns (uint256 assets) {
         require(shares > 0, "Cannot withdraw zero shares");
 

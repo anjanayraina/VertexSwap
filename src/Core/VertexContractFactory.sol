@@ -27,7 +27,8 @@ contract VertexContractFactory {
             pool := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
 
-        VertexPool(pool).initialize(token0, token1);
+        // Initialize the pool with token addresses and the caller as the owner
+        VertexPool(pool).initialize(token0, token1, msg.sender);
 
         getPool[token0][token1] = pool;
         getPool[token1][token0] = pool; 
