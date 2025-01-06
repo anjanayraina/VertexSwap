@@ -16,7 +16,6 @@ contract MultiTokenVaultTest is Test {
     address public constant USDC_ORACLE = 0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7;
     address public constant WETH_ORACLE = 0xF9680D99D6C9589e2a93a78A04A279e509205945;
 
-
     address public alice;
 
     function setUp() public {
@@ -33,9 +32,10 @@ contract MultiTokenVaultTest is Test {
 
         // Fund Alice's account for testing
         alice = address(0x1);
-        deal(USDC_ADDRESS, alice, 1_000_000 * 10**6); // 1M USDC
-        deal(WETH_ADDRESS, alice, 100 * 10**18); // 100 WETH
+        deal(USDC_ADDRESS, alice, 1_000 * 10**6); // 1M USDC
+        deal(WETH_ADDRESS, alice, 1 * 10**18); // 100 WETH
     }
+
     function testDeposit() public {
         vm.startPrank(alice);
 
@@ -53,21 +53,29 @@ contract MultiTokenVaultTest is Test {
         vm.stopPrank();
     }
 
-function testWithdraw() public {
-    vm.startPrank(alice);
+    function testWithdrawProportional() public {
+        vm.startPrank(alice);
 
-    // Deposit USDC
-    usdc.approve(address(vault), 1_000 * 10**6);
-    uint256 shares = vault.deposit(USDC_ADDRESS, 1_000 * 10**6, alice);
+        // Deposit USDC and WETH
+        usdc.approve(address(vault), 1_000 * 10**6);
+        vault.deposit(USDC_ADDRESS, 1_000 * 10**6, alice);
 
-    // Withdraw
-    uint256 assets = vault.withdraw(shares, alice);
+        weth.approve(address(vault), 1 * 10**18);
+        vault.deposit(WETH_ADDRESS, 1 * 10**18, alice);
 
-    // Use assertApproxEq to allow for minor rounding differences
-    assertApproxEq(assets, 1_000 * 10**6, "Should withdraw approximately 1000 USDC");
+        // Withdraw all shares
+        uint256 shares = vault.balanceOf(alice);
+        vault.withdraw(shares, alice);
 
-    vm.stopPrank();
-}
+        // Verify proportional withdrawal
+        uint256 usdcBalanceAfter = usdc.balanceOf(alice);
+        uint256 wethBalanceAfter = weth.balanceOf(alice);
+
+        assertApproxEqRel(usdcBalanceAfter, 1_000 * 10**6, 1e16, "USDC balance should match proportional withdrawal");
+        assertApproxEqRel(wethBalanceAfter, 1 * 10**18, 1e16, "WETH balance should match proportional withdrawal");
+
+        vm.stopPrank();
+    }
 
     function testTotalAssets() public {
         vm.startPrank(alice);

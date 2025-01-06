@@ -4,13 +4,11 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "../Interfaces/AggregatorV3Interface.sol";
 
 contract MultiTokenVault is ERC20, Ownable {
-    uint256 private constant PRECISON_FACTOR = 3; 
     using SafeERC20 for IERC20;
 
     struct TokenInfo {
@@ -21,9 +19,7 @@ contract MultiTokenVault is ERC20, Ownable {
     mapping(address => TokenInfo) public tokens; // Supported tokens and their oracles
     address[] public tokenList; // List of supported tokens
 
-    constructor(string memory name, string memory symbol, address owner  ) ERC20(name, symbol) Ownable(owner){
-
-    }
+    constructor(string memory name, string memory symbol, address owner) ERC20(name, symbol) Ownable(owner) {}
 
     // Add a token to the supported list
     function addToken(address token, address oracle) external onlyOwner {
@@ -52,21 +48,18 @@ contract MultiTokenVault is ERC20, Ownable {
         }
     }
 
-// Calculate total vault value in USD
-// Calculate total assets in USD with 3-decimal precision
-function totalAssets() public view returns (uint256 totalValue) {
-    uint256 precisionFactor = 10**PRECISON_FACTOR; // For 3-decimal precision
-    for (uint256 i = 0; i < tokenList.length; i++) {
-        address token = tokenList[i];
-        if (tokens[token].supported) {
-            uint256 balance = IERC20(token).balanceOf(address(this));
-            uint256 price = getTokenPrice(token); 
-            uint256 decimals = IERC20Metadata(token).decimals();
-            totalValue += (balance * price * precisionFactor) / (10**(decimals + tokens[token].priceOracle.decimals()));
+    // Calculate total vault value in USD
+    function totalAssets() public view returns (uint256 totalValue) {
+        for (uint256 i = 0; i < tokenList.length; i++) {
+            address token = tokenList[i];
+            if (tokens[token].supported) {
+                uint256 balance = IERC20(token).balanceOf(address(this));
+                uint256 price = getTokenPrice(token);
+                uint256 decimals = IERC20Metadata(token).decimals();
+                totalValue += (balance * price) / (10**(decimals + tokens[token].priceOracle.decimals()));
+            }
         }
     }
-}
-
 
     // Get token price from oracle
     function getTokenPrice(address token) public view returns (uint256) {
@@ -77,62 +70,52 @@ function totalAssets() public view returns (uint256 totalValue) {
     }
 
     // Deposit tokens into the vault and mint shares
-function deposit(address token, uint256 amount, address receiver) external returns (uint256 shares) {
-    require(tokens[token].supported, "Token not supported");
-    require(amount > 0, "Cannot deposit zero assets");
+    function deposit(address token, uint256 amount, address receiver) external returns (uint256 shares) {
+        require(tokens[token].supported, "Token not supported");
+        require(amount > 0, "Cannot deposit zero assets");
 
-    uint256 vaultValueBefore = totalAssets();
+        uint256 vaultValueBefore = totalAssets();
 
-    IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
-    uint256 vaultValueAfter = totalAssets();
-    uint256 depositedValue = vaultValueAfter - vaultValueBefore;
+        uint256 vaultValueAfter = totalAssets();
+        uint256 depositedValue = vaultValueAfter - vaultValueBefore;
 
-    if (totalSupply() == 0) {
-        // First deposit, mint shares equal to the deposited value
-        shares = depositedValue * (10**PRECISON_FACTOR); 
-    } else {
-        // Regular deposit, mint proportional shares
-        shares = (depositedValue * totalSupply()) / vaultValueBefore;
+        if (totalSupply() == 0) {
+            // First deposit, mint shares equal to the deposited value
+            shares = depositedValue;
+        } else {
+            // Regular deposit, mint proportional shares
+            shares = (depositedValue * totalSupply()) / vaultValueBefore;
+        }
+
+        require(shares > 0, "Cannot mint zero shares");
+        _mint(receiver, shares);
     }
 
-    require(shares > 0, "Cannot mint zero shares");
-    _mint(receiver, shares);
-}
-
-
-    // Withdraw tokens from the vault and burn shares
+    // Withdraw tokens proportionally from all reserves
     function withdraw(uint256 shares, address receiver) external returns (uint256 assets) {
         require(shares > 0, "Cannot withdraw zero shares");
+
         uint256 totalValue = totalAssets();
-        uint256 shareValue = (shares * totalValue) / totalSupply();
+        uint256 totalSupplyShares = totalSupply();
+        require(totalSupplyShares > 0, "No shares exist");
+
+        uint256 proportion = (shares * 1e18) / totalSupplyShares; // Share proportion in 18 decimals
         _burn(msg.sender, shares);
 
-        uint256 remainingValue = shareValue;
-
-        for (uint256 i = 0; i < tokenList.length && remainingValue > 0; i++) {
+        for (uint256 i = 0; i < tokenList.length; i++) {
             address token = tokenList[i];
             if (!tokens[token].supported) continue;
 
             uint256 balance = IERC20(token).balanceOf(address(this));
-            uint256 price = getTokenPrice(token);
-            uint256 decimals = IERC20Metadata(token).decimals();
-            uint256 tokenValue = (balance * price) / (10**decimals);
-
-            uint256 amountToTransfer = 0;
-            if (remainingValue <= tokenValue) {
-                amountToTransfer = (remainingValue * (10**decimals)) / price;
-                remainingValue = 0;
-            } else {
-                amountToTransfer = balance;
-                remainingValue -= tokenValue;
-            }
+            uint256 amountToTransfer = (balance * proportion) / 1e18;
 
             if (amountToTransfer > 0) {
                 IERC20(token).safeTransfer(receiver, amountToTransfer);
             }
         }
 
-        assets = shareValue; // Total USD value of withdrawn tokens
+        assets = (totalValue * shares) / totalSupplyShares;
     }
 }
