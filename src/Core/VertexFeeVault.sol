@@ -59,7 +59,7 @@ contract VertexFeeVault is ERC4626, Ownable {
             address token = tokenList[i];
             if (tokens[token].supported) {
                 uint256 balance = IERC20(token).balanceOf(address(this));
-                uint256 price = getTokenPrice(token);
+                uint256 price = getTokenPrice(token); // @audit the oracles will probably send the data in terms of deciamls so keep that in mind 
                 totalValue += (balance * price) / (10**ERC20(token).decimals());
             }
         }
@@ -74,12 +74,12 @@ contract VertexFeeVault is ERC4626, Ownable {
     }
 
     // Override deposit function to mint shares
-    function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
-        require(assets > 0, "Cannot deposit zero assets");
-        require(tokens[_msgSender()].supported, "Token not supported");
+    function deposit(address token , uint256 amount, address receiver) public override returns (uint256 shares) {
+        require(amount> 0, "Cannot deposit zero assets");
+        require(tokens[token].supported, "Token not supported");
 
         uint256 vaultValueBefore = totalAssetsInUSD();
-        IERC20(_msgSender()).safeTransferFrom(_msgSender(), address(this), assets);
+        IERC20(token).safeTransferFrom(_msgSender(), address(this), amount );
 
         uint256 vaultValueAfter = totalAssetsInUSD();
         uint256 assetUSDValue = vaultValueAfter - vaultValueBefore;
