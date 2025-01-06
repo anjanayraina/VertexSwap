@@ -77,19 +77,29 @@ function totalAssets() public view returns (uint256 totalValue) {
     }
 
     // Deposit tokens into the vault and mint shares
-    function deposit(address token, uint256 amount, address receiver) external returns (uint256 shares) {
-        require(tokens[token].supported, "Token not supported");
-        require(amount > 0, "Cannot deposit zero assets");
+function deposit(address token, uint256 amount, address receiver) external returns (uint256 shares) {
+    require(tokens[token].supported, "Token not supported");
+    require(amount > 0, "Cannot deposit zero assets");
 
-        uint256 vaultValueBefore = totalAssets();
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+    uint256 vaultValueBefore = totalAssets();
 
-        uint256 vaultValueAfter = totalAssets();
-        uint256 depositedValue = vaultValueAfter - vaultValueBefore;
+    IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
+    uint256 vaultValueAfter = totalAssets();
+    uint256 depositedValue = vaultValueAfter - vaultValueBefore;
+
+    if (totalSupply() == 0) {
+        // First deposit, mint shares equal to the deposited value
+        shares = depositedValue * (10**PRECISON_FACTOR); 
+    } else {
+        // Regular deposit, mint proportional shares
         shares = (depositedValue * totalSupply()) / vaultValueBefore;
-        _mint(receiver, shares);
     }
+
+    require(shares > 0, "Cannot mint zero shares");
+    _mint(receiver, shares);
+}
+
 
     // Withdraw tokens from the vault and burn shares
     function withdraw(uint256 shares, address receiver) external returns (uint256 assets) {
