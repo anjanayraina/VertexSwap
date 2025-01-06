@@ -74,7 +74,7 @@ contract VertexFeeVault is ERC4626, Ownable {
     }
 
     // Override deposit function to mint shares
-    function deposit(address token , uint256 amount, address receiver) public override returns (uint256 shares) {
+    function deposit(address token , uint256 amount, address receiver) public  returns (uint256 shares) {
         require(amount> 0, "Cannot deposit zero assets");
         require(tokens[token].supported, "Token not supported");
 

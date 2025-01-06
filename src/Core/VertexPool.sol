@@ -17,10 +17,10 @@ contract VertexPool is ERC20 {
     VertexFeeVault public feeVault;
     uint256 private constant FEE_RATE = 3; // 0.30% fee
 
-    constructor(address _token0, address _token1) ERC20("Liquidity Pool Token", "LPT") {
+    constructor(address _token0, address _token1 , uint256 amount) ERC20("Liquidity Pool Token", "LPT") {
         token0 = IERC20(_token0);
         token1 = IERC20(_token1);
-        feeVault = new VertexFeeVault(address(this));
+        feeVault = new VertexFeeVault(IERC20(address(0x1)) , address(this));
     }
 
     function mint(address to) external returns (uint256 liquidity) {
