@@ -21,18 +21,8 @@ contract MultiTokenVault is ERC20, Ownable {
     mapping(address => TokenInfo) public tokens; // Supported tokens and their oracles
     address[] public tokenList; // List of supported tokens
 
-    constructor(string memory name, string memory symbol, address owner , address[] memory initial_tokens ) ERC20(name, symbol) Ownable(owner){
-        for (uint256 i = 0; i < tokens.length; i++) {
-            address token = tokens[i];
-            require(token != address(0), "Invalid token address");
-            require(!tokens[token].supported, "Token already supported");
+    constructor(string memory name, string memory symbol, address owner  ) ERC20(name, symbol) Ownable(owner){
 
-            tokens[token] = TokenInfo({
-                supported: true,
-                priceOracle: AggregatorV3Interface(address(0))
-            });
-            tokenList.push(token);
-        }
     }
 
     // Add a token to the supported list
